@@ -3,6 +3,8 @@ import { MainLayout } from "./layouts/MainLayout"
 import { AdminLayout } from "./layouts/AdminLayout"
 import { AdminOverviewTab } from "./pages/AdminOverviewTab"
 import { AdminCarsTab } from "./pages/AdminCarsTab"
+import { AdminLocationsTab } from "./pages/AdminLocationsTab"
+import { AdminBrandsTab } from "./pages/AdminBrandsTab"
 import { AdminBookingsTab } from "./pages/AdminBookingsTab"
 import { AdminUsersTab } from "./pages/AdminUsersTab"
 import { AdminReportsTab } from "./pages/AdminReportsTab"
@@ -49,6 +51,8 @@ function App() {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminOverviewTab />} />
           <Route path="cars" element={<AdminCarsTab />} />
+          <Route path="locations" element={<AdminLocationsTab />} />
+          <Route path="brands" element={<AdminBrandsTab />} />
           <Route path="bookings" element={<AdminBookingsTab />} />
           <Route path="users" element={<AdminUsersTab />} />
           <Route path="reports" element={<AdminReportsTab />} />

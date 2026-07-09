@@ -1,11 +1,13 @@
 import { Outlet, NavLink, Link } from "react-router-dom"
-import { Car, LayoutDashboard, ClipboardList, Users, BarChart3, Search, Bell } from "lucide-react"
+import { Car, LayoutDashboard, ClipboardList, Users, BarChart3, Search, Bell, Tags, Building } from "lucide-react"
 import logo from "@/assets/FPTCarRental_BG_Removed.png"
 
 export function AdminLayout() {
   const menuItems = [
     { name: "Tổng quan", icon: LayoutDashboard, path: "/admin" },
     { name: "Quản lý xe", icon: Car, path: "/admin/cars" },
+    { name: "Chi nhánh", icon: Building, path: "/admin/locations" },
+    { name: "Hãng xe", icon: Tags, path: "/admin/brands" },
     { name: "Đơn đặt xe", icon: ClipboardList, path: "/admin/bookings" },
     { name: "Khách hàng", icon: Users, path: "/admin/users" },
     { name: "Báo cáo doanh thu", icon: BarChart3, path: "/admin/reports" },

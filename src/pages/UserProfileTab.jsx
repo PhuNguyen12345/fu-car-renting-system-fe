@@ -1,13 +1,28 @@
 import { UploadCloud } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useState } from "react"
 
 export function UserProfileTab() {
+  const [cccdPreview, setCccdPreview] = useState(null)
+  const [gplxPreview, setGplxPreview] = useState(null)
+
   const mockUser = {
     name: 'Nguyễn An Phú',
     dob: '2005-08-15',
     phone: '0987654321',
     email: 'phuna@fpt.edu.vn',
-    cccd: '001202001234'
+    cccd: '001202001234',
+    gplx: '790123456789'
+  }
+
+  const handleCccdUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) setCccdPreview(URL.createObjectURL(file));
+  }
+
+  const handleGplxUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) setGplxPreview(URL.createObjectURL(file));
   }
 
   return (
@@ -54,11 +69,19 @@ export function UserProfileTab() {
               className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed font-medium" 
             />
           </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm font-semibold text-slate-700 mb-2">Số Căn cước công dân (CCCD) / Số GPLX</label>
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">Số Căn cước công dân (CCCD) *</label>
             <input 
               type="text" 
               defaultValue={mockUser.cccd}
+              className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all font-medium text-slate-900" 
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">Số Giấy phép lái xe (GPLX) *</label>
+            <input 
+              type="text" 
+              defaultValue={mockUser.gplx}
               className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all font-medium text-slate-900" 
             />
           </div>
@@ -67,14 +90,60 @@ export function UserProfileTab() {
 
       {/* ID Verification */}
       <div className="space-y-4 pt-4">
-        <h3 className="text-lg font-bold text-slate-900 border-b border-slate-100 pb-2">Giấy tờ xác minh (CCCD / Bằng lái xe)</h3>
+        <h3 className="text-lg font-bold text-slate-900 border-b border-slate-100 pb-2">Giấy tờ xác minh</h3>
         
-        <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 flex flex-col items-center justify-center text-slate-500 hover:bg-slate-50 cursor-pointer transition-colors mt-4">
-          <div className="w-14 h-14 bg-blue-50 text-fpt-blue rounded-full flex items-center justify-center mb-4">
-            <UploadCloud className="w-7 h-7" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+          {/* CCCD Upload */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">Ảnh mặt trước CCCD *</label>
+            <div className="relative border-2 border-dashed border-slate-300 rounded-xl p-6 flex flex-col items-center justify-center text-slate-500 hover:bg-slate-50 cursor-pointer transition-colors h-48 bg-white">
+              <input 
+                type="file" 
+                accept="image/*"
+                onChange={handleCccdUpload}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+              />
+              {cccdPreview ? (
+                <div className="absolute inset-2">
+                  <img src={cccdPreview} alt="CCCD Preview" className="w-full h-full object-contain rounded-lg" />
+                </div>
+              ) : (
+                <>
+                  <div className="w-12 h-12 bg-blue-50 text-fpt-blue rounded-full flex items-center justify-center mb-3">
+                    <UploadCloud className="w-6 h-6" />
+                  </div>
+                  <p className="font-bold text-slate-700 text-sm mb-1 text-center">Tải ảnh mặt trước CCCD</p>
+                  <p className="text-xs text-slate-400 text-center">Hỗ trợ JPG, PNG (Tối đa 5MB)</p>
+                </>
+              )}
+            </div>
           </div>
-          <p className="font-bold text-slate-700 text-base mb-1">Nhấn để tải ảnh lên hoặc kéo thả vào đây</p>
-          <p className="text-sm text-slate-400">Hỗ trợ định dạng JPG, PNG (Tối đa 5MB)</p>
+
+          {/* GPLX Upload */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">Ảnh mặt trước Bằng lái xe (GPLX) *</label>
+            <div className="relative border-2 border-dashed border-slate-300 rounded-xl p-6 flex flex-col items-center justify-center text-slate-500 hover:bg-slate-50 cursor-pointer transition-colors h-48 bg-white">
+              <input 
+                type="file" 
+                accept="image/*"
+                onChange={handleGplxUpload}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+              />
+              {gplxPreview ? (
+                <div className="absolute inset-2">
+                  <img src={gplxPreview} alt="GPLX Preview" className="w-full h-full object-contain rounded-lg" />
+                </div>
+              ) : (
+                <>
+                  <div className="w-12 h-12 bg-blue-50 text-fpt-blue rounded-full flex items-center justify-center mb-3">
+                    <UploadCloud className="w-6 h-6" />
+                  </div>
+                  <p className="font-bold text-slate-700 text-sm mb-1 text-center">Tải ảnh mặt trước Bằng lái xe</p>
+                  <p className="text-xs text-slate-400 text-center">Hỗ trợ JPG, PNG (Tối đa 5MB)</p>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

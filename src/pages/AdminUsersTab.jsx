@@ -1,4 +1,4 @@
-import { Search, Car, Lock, Unlock, Eye, X, Mail, Phone, MapPin, CalendarDays, FileText, MessageSquare, EyeOff } from "lucide-react"
+import { Search, Car, Lock, Unlock, Eye, X, Mail, Phone, MapPin, CalendarDays, FileText, MessageSquare, EyeOff, ExternalLink } from "lucide-react"
 import { useState } from "react"
 import { createPortal } from "react-dom"
 import {
@@ -80,10 +80,12 @@ const getStatusBadge = (status) => {
 export function AdminUsersTab() {
   const [viewUser, setViewUser] = useState(null)
   const [showId, setShowId] = useState(false)
+  const [previewImage, setPreviewImage] = useState(null)
 
   const handleCloseModal = () => {
     setViewUser(null)
     setShowId(false)
+    setPreviewImage(null)
   }
 
   return (
@@ -271,6 +273,34 @@ export function AdminUsersTab() {
                         >
                           {showId ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
+                        <button 
+                          onClick={() => setPreviewImage(viewUser.cccdImage || 'https://res.cloudinary.com/demo/image/upload/sample.jpg')} 
+                          className="text-blue-500 hover:text-blue-700 transition-colors ml-1 p-1 rounded-md hover:bg-blue-50"
+                          title="Xem ảnh chụp"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 text-slate-700">
+                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                        <FileText className="w-4 h-4 text-slate-500" />
+                      </div>
+                      <div className="flex items-center gap-2 font-medium text-sm">
+                        <span>GPLX: {showId ? (viewUser.gplx || '012987654321') : `${(viewUser.gplx || '012987654321').substring(0, 3)} *** *** ${(viewUser.gplx || '012987654321').substring(9)}`}</span>
+                        <button 
+                          onClick={() => setShowId(!showId)} 
+                          className="text-slate-400 hover:text-blue-600 transition-colors"
+                        >
+                          {showId ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                        <button 
+                          onClick={() => setPreviewImage(viewUser.gplxImage || 'https://res.cloudinary.com/demo/image/upload/sample.jpg')} 
+                          className="text-blue-500 hover:text-blue-700 transition-colors ml-1 p-1 rounded-md hover:bg-blue-50"
+                          title="Xem ảnh chụp"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                     <div className="flex items-start gap-3 text-slate-700">
@@ -343,6 +373,26 @@ export function AdminUsersTab() {
                 </button>
               )}
             </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal Preview Ảnh */}
+      {previewImage && createPortal(
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="relative max-w-4xl w-full max-h-[90vh] flex flex-col items-center justify-center animate-in zoom-in-95 duration-200">
+            <button 
+              onClick={() => setPreviewImage(null)}
+              className="absolute -top-12 right-0 text-white hover:text-slate-300 transition-colors p-2"
+            >
+              <X className="w-8 h-8" />
+            </button>
+            <img 
+              src={previewImage} 
+              alt="Preview" 
+              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl" 
+            />
           </div>
         </div>,
         document.body

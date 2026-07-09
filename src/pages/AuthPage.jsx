@@ -1,15 +1,44 @@
 import { Link, useNavigate } from "react-router-dom"
+import { useState } from "react"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import logo from "@/assets/FPTCarRental_BG_Removed.png"
 
 export function AuthPage() {
   const navigate = useNavigate()
+  const [birthDate, setBirthDate] = useState('')
+  const [ageError, setAgeError] = useState('')
 
   const handleLogin = (e) => {
     e.preventDefault()
     localStorage.setItem('mockUser', 'true')
     navigate('/')
+  }
+
+  const validateAge = (dateString) => {
+    if (!dateString) return false;
+    const dob = new Date(dateString);
+    const today = new Date();
+    
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+      age--;
+    }
+    
+    return age >= 18;
+  }
+
+  const handleRegister = (e) => {
+    e.preventDefault()
+    if (!validateAge(birthDate)) {
+      setAgeError('Bạn phải đủ 18 tuổi để sử dụng dịch vụ thuê xe.')
+      return
+    }
+    setAgeError('')
+    // TODO: Registration logic here
+    console.log("Đăng ký thành công")
   }
   return (
     <div className="min-h-screen flex w-full">
@@ -86,28 +115,53 @@ export function AuthPage() {
             </TabsContent>
 
             <TabsContent value="register" className="space-y-6 mt-0 animate-in fade-in zoom-in-95 duration-200">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Họ và tên</label>
-                  <input type="text" placeholder="Nguyễn Văn A" className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all placeholder:text-slate-400 font-medium" />
+              <form onSubmit={handleRegister} className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Họ và tên</label>
+                    <input required type="text" placeholder="Nguyễn Văn A" className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all placeholder:text-slate-400 font-medium" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Email</label>
+                    <input required type="email" placeholder="example@email.com" className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all placeholder:text-slate-400 font-medium" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Ngày sinh</label>
+                    <input 
+                      required 
+                      type="date" 
+                      value={birthDate}
+                      onChange={(e) => {
+                        setBirthDate(e.target.value)
+                        if (ageError) {
+                          if (validateAge(e.target.value)) setAgeError('')
+                        }
+                      }}
+                      onBlur={() => {
+                        if (birthDate && !validateAge(birthDate)) {
+                          setAgeError('Bạn phải đủ 18 tuổi để sử dụng dịch vụ thuê xe.')
+                        } else if (birthDate) {
+                          setAgeError('')
+                        }
+                      }}
+                      className={`w-full px-4 py-3 rounded-xl border ${ageError ? 'border-red-500 bg-red-50' : 'border-slate-300 bg-slate-50'} focus:bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all placeholder:text-slate-400 font-medium`} 
+                    />
+                    {ageError && <p className="text-red-500 text-xs font-semibold mt-1.5">{ageError}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Mật khẩu</label>
+                    <input required type="password" placeholder="Tạo mật khẩu (ít nhất 8 ký tự)" className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all placeholder:text-slate-400 font-medium" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Xác nhận mật khẩu</label>
+                    <input required type="password" placeholder="Nhập lại mật khẩu" className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all placeholder:text-slate-400 font-medium" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Email</label>
-                  <input type="email" placeholder="example@email.com" className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all placeholder:text-slate-400 font-medium" />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Mật khẩu</label>
-                  <input type="password" placeholder="Tạo mật khẩu (ít nhất 8 ký tự)" className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all placeholder:text-slate-400 font-medium" />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Xác nhận mật khẩu</label>
-                  <input type="password" placeholder="Nhập lại mật khẩu" className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all placeholder:text-slate-400 font-medium" />
-                </div>
-              </div>
 
-              <Button className="w-full h-12 bg-fpt-blue hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition-all hover:-translate-y-0.5">
-                Đăng ký
-              </Button>
+                <Button type="submit" className="w-full h-12 bg-fpt-blue hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition-all hover:-translate-y-0.5">
+                  Đăng ký
+                </Button>
+              </form>
             </TabsContent>
           </Tabs>
 
