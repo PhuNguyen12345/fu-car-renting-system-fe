@@ -1,5 +1,5 @@
-import { Link, useParams, useNavigate } from "react-router-dom"
-import { mockCars } from "@/data/mockCars"
+import { Link, useParams, useNavigate, useLocation } from "react-router-dom"
+import { carService } from "@/services/carService"
 import { Progress } from "@/components/ui/progress"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 
@@ -48,7 +48,7 @@ const mockReviews = [
   }
 ]
 import { Button } from "@/components/ui/button"
-import { Users, Fuel, DoorOpen, Settings, CheckCircle2, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Star, ShieldCheck } from "lucide-react"
+import { Users, Fuel, DoorOpen, Settings, CheckCircle2, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Star, ShieldCheck, MapPin } from "lucide-react"
 import { useState, useMemo, useEffect } from "react"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -57,12 +57,29 @@ import { format, differenceInDays } from "date-fns"
 export function CarDetailsPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const car = mockCars.find(c => c.id === parseInt(id))
+  const [car, setCar] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    const fetchCar = async () => {
+      setLoading(true)
+      try {
+        const data = await carService.getPublicCarDetail(id)
+        setCar(data)
+      } catch (err) {
+        console.error("Lỗi khi tải chi tiết xe:", err)
+        setError(true)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchCar()
+  }, [id])
   
-  const carImages = car?.images || (car ? [
-    car.image,
-    "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?q=80&w=2070&auto=format&fit=crop"
-  ] : [])
+  const carImages = car?.images?.length > 0 
+    ? car.images.map(img => img.url) 
+    : ["https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?q=80&w=2070&auto=format&fit=crop"]
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [activeReviewIndex, setActiveReviewIndex] = useState(null)
@@ -73,9 +90,17 @@ export function CarDetailsPage() {
   useEffect(() => {
     setCurrentImageIndex(0)
   }, [id])
-  const [dateRange, setDateRange] = useState({
-    from: new Date(),
-    to: new Date(new Date().getTime() + 3 * 24 * 60 * 60 * 1000)
+  const location = useLocation()
+  
+  const [dateRange, setDateRange] = useState(() => {
+    const searchParams = new URLSearchParams(location.search)
+    const initialFrom = searchParams.get('from')
+    const initialTo = searchParams.get('to')
+    
+    return {
+      from: initialFrom ? new Date(initialFrom) : new Date(),
+      to: initialTo ? new Date(initialTo) : new Date(new Date().getTime() + 3 * 24 * 60 * 60 * 1000)
+    }
   })
 
   const days = useMemo(() => {
@@ -84,6 +109,7 @@ export function CarDetailsPage() {
     return diff > 0 ? diff : 1; // Minimum 1 day
   }, [dateRange]);
 
+  const isAvailable = car?.status === 'AVAILABLE';
   const totalCost = days * (car?.pricePerDay || 0);
 
   const totalReviews = mockReviews.length;
@@ -97,7 +123,15 @@ export function CarDetailsPage() {
     text: `${Math.round((ratingCounts[stars] / totalReviews) * 100) || 0}%`
   }));
 
-  if (!car) {
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4">
+        <h2 className="text-xl font-bold text-gray-800">Đang tải chi tiết xe...</h2>
+      </div>
+    )
+  }
+
+  if (error || !car) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4">
         <h2 className="text-3xl font-bold text-gray-800 mb-4">Không tìm thấy xe!</h2>
@@ -136,7 +170,7 @@ export function CarDetailsPage() {
                 />
                 
                 <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-4 py-1.5 rounded-full font-bold text-fpt-blue shadow-sm">
-                  {car.category}
+                  {car.type || 'SEDAN'}
                 </div>
 
                 {/* Left/Right Buttons */}
@@ -204,15 +238,17 @@ export function CarDetailsPage() {
                 </div>
                 <div className="bg-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center text-center gap-2">
                   <Settings className="w-6 h-6 text-fpt-teal" />
-                  <span className="text-sm font-semibold text-gray-700">{car.transmission}</span>
+                  <span className="text-sm font-semibold text-gray-700">{car.transmission === 'AUTO' ? 'Tự động' : 'Số sàn'}</span>
                 </div>
                 <div className="bg-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center text-center gap-2">
                   <Fuel className="w-6 h-6 text-fpt-teal" />
-                  <span className="text-sm font-semibold text-gray-700">{car.fuelType}</span>
+                  <span className="text-sm font-semibold text-gray-700">
+                    {car.fuelType === 'GASOLINE' ? 'Xăng' : car.fuelType === 'DIESEL' ? 'Dầu Diesel' : 'Điện'}
+                  </span>
                 </div>
                 <div className="bg-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center text-center gap-2">
-                  <DoorOpen className="w-6 h-6 text-fpt-teal" />
-                  <span className="text-sm font-semibold text-gray-700">{car.doors} Cửa</span>
+                  <MapPin className="w-6 h-6 text-fpt-teal" />
+                  <span className="text-sm font-semibold text-gray-700">{car.locationName}</span>
                 </div>
               </div>
             </div>
@@ -221,7 +257,7 @@ export function CarDetailsPage() {
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
                <h3 className="text-xl font-bold text-gray-900 mb-6">Tiện nghi có sẵn</h3>
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 {["Điều hòa nhiệt độ", "Màn hình cảm ứng", "Camera lùi", "Cảm biến va chạm", "Bluetooth/USB", "Cửa sổ trời", "Ghế da cao cấp", "Hệ thống định vị GPS"].map(feature => (
+                 {(car.features?.length > 0 ? car.features : ["Điều hòa nhiệt độ", "Bluetooth/USB", "Màn hình cảm ứng"]).map(feature => (
                     <div key={feature} className="flex items-center gap-3 text-gray-700 font-medium">
                       <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                       <span>{feature}</span>
@@ -481,8 +517,17 @@ export function CarDetailsPage() {
                 </div>
               </div>
 
-              <Button onClick={() => navigate(`/checkout/${car.id}`)} className="w-full h-14 rounded-xl text-lg font-bold bg-fpt-blue hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all hover:-translate-y-1">
-                Tiếp tục đặt xe
+              <Button 
+                disabled={!isAvailable}
+                onClick={() => {
+                  const queryParams = new URLSearchParams()
+                  if (dateRange?.from) queryParams.set('from', dateRange.from.toISOString())
+                  if (dateRange?.to) queryParams.set('to', dateRange.to.toISOString())
+                  navigate(`/checkout/${car.id}?${queryParams.toString()}`)
+                }}
+                className={`w-full h-14 rounded-xl text-lg font-bold shadow-md transition-all ${isAvailable ? 'bg-fpt-blue hover:bg-blue-700 text-white hover:shadow-lg hover:-translate-y-1' : 'bg-gray-200 text-gray-500 cursor-not-allowed opacity-80'}`}
+              >
+                {car?.status === 'RENTED' ? 'Xe đang được thuê' : (car?.status === 'MAINTENANCE' ? 'Xe đang bảo trì' : 'Tiếp tục đặt xe')}
               </Button>
               <p className="text-center text-xs text-gray-400 mt-4 font-medium">
                 Bạn chưa bị trừ tiền ở bước này.

@@ -1,14 +1,34 @@
 import { Mail, Lock } from "lucide-react"
 import { useNavigate } from "react-router-dom"
+import { useState } from "react"
 import logo from "@/assets/FPTCarRental_BG_Removed.png"
+import { authService } from "@/services/authService"
 
 export function AdminLoginPage() {
   const navigate = useNavigate()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault()
-    // Mock login success, redirect to admin dashboard
-    navigate('/admin')
+    setError('')
+    try {
+      const res = await authService.login({ email, password })
+      if (res.token) {
+        if (res.role === 'ADMIN') {
+          localStorage.setItem('token', res.token)
+          localStorage.setItem('userRole', res.role)
+          localStorage.setItem('userEmail', res.email)
+          localStorage.setItem('userId', res.customerId)
+          navigate('/admin')
+        } else {
+          setError('Tài khoản của bạn không có quyền truy cập Admin.')
+        }
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại email/mật khẩu.')
+    }
   }
 
   return (
@@ -63,6 +83,8 @@ export function AdminLoginPage() {
                 <input
                   type="email"
                   required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="admin@fpt.edu.vn"
                   className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800 transition-all text-sm font-medium text-slate-900"
                 />
@@ -80,6 +102,8 @@ export function AdminLoginPage() {
                 <input
                   type="password"
                   required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800 transition-all text-sm font-medium text-slate-900"
                 />
@@ -88,6 +112,8 @@ export function AdminLoginPage() {
                 Quên mật khẩu?
               </a>
             </div>
+
+            {error && <p className="text-red-500 text-sm font-semibold text-center">{error}</p>}
 
             <button
               type="submit"

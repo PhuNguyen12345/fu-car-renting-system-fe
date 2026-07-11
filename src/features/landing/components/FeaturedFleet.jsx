@@ -3,10 +3,27 @@ import { CarCard } from "@/components/common/CarCard"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react"
 import { Link } from "react-router-dom"
-import { mockCars } from "@/data/mockCars"
+import { useState, useEffect } from "react"
+import { carService } from "@/services/carService"
 
 export function FeaturedFleet() {
   const scrollContainerRef = useRef(null)
+  const [featuredCars, setFeaturedCars] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchCars = async () => {
+      try {
+        const res = await carService.getPublicCars({ page: 0, size: 8 })
+        setFeaturedCars(res.content)
+      } catch (err) {
+        console.error("Lỗi tải xe nổi bật:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchCars()
+  }, [])
 
   const scroll = (direction) => {
     if (scrollContainerRef.current) {
@@ -45,11 +62,17 @@ export function FeaturedFleet() {
             className="flex overflow-x-auto gap-6 pb-4 snap-x snap-mandatory scroll-smooth [&::-webkit-scrollbar]:hidden"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
-            {mockCars.map(car => (
-              <div key={car.id} className="flex-none w-full md:w-[calc(50%-12px)] lg:w-[calc(25%-18px)] snap-start">
-                <CarCard car={car} />
-              </div>
-            ))}
+            {loading ? (
+              <div className="w-full text-center py-10 text-gray-500 font-medium">Đang tải danh sách xe...</div>
+            ) : featuredCars.length > 0 ? (
+              featuredCars.map(car => (
+                <div key={car.id} className="flex-none w-full md:w-[calc(50%-12px)] lg:w-[calc(25%-18px)] snap-start">
+                  <CarCard car={car} />
+                </div>
+              ))
+            ) : (
+              <div className="w-full text-center py-10 text-gray-500 font-medium">Chưa có xe nào.</div>
+            )}
           </div>
 
           {/* Right Navigation Button */}

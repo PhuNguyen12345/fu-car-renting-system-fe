@@ -1,29 +1,119 @@
 import { UploadCloud } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { customerService } from "@/services/customerService"
 
 export function UserProfileTab() {
+  const [loading, setLoading] = useState(true)
+  const [profile, setProfile] = useState({
+    fullName: '',
+    dateOfBirth: '',
+    phone: '',
+    email: '',
+    cccd: '',
+    gplxNumber: '',
+    cccdUrl: '',
+    gplxUrl: ''
+  })
+  
   const [cccdPreview, setCccdPreview] = useState(null)
   const [gplxPreview, setGplxPreview] = useState(null)
+  const [uploadingCccd, setUploadingCccd] = useState(false)
+  const [uploadingGplx, setUploadingGplx] = useState(false)
 
-  const mockUser = {
-    name: 'Nguyễn An Phú',
-    dob: '2005-08-15',
-    phone: '0987654321',
-    email: 'phuna@fpt.edu.vn',
-    cccd: '001202001234',
-    gplx: '790123456789'
+  useEffect(() => {
+    fetchProfile()
+  }, [])
+
+  const fetchProfile = async () => {
+    try {
+      const data = await customerService.getMyProfile()
+      setProfile({
+        fullName: data.fullName || '',
+        dateOfBirth: data.dateOfBirth || '',
+        phone: data.phone || '',
+        email: data.email || '',
+        cccd: data.cccd || '',
+        gplxNumber: data.gplxNumber || '',
+        cccdUrl: data.cccdUrl || '',
+        gplxUrl: data.gplxUrl || ''
+      })
+      if (data.cccdUrl) setCccdPreview(data.cccdUrl)
+      if (data.gplxUrl) setGplxPreview(data.gplxUrl)
+    } catch (err) {
+      console.error('Failed to fetch profile', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleCccdUpload = (e) => {
+  const handleSave = async () => {
+    try {
+      await customerService.updateMyProfile(profile)
+      alert('Cập nhật hồ sơ thành công!')
+    } catch (err) {
+      alert('Có lỗi xảy ra khi cập nhật hồ sơ.')
+      console.error(err)
+    }
+  }
+
+  const uploadToCloudinary = async (file) => {
+    try {
+      const sigData = await customerService.getCloudinarySignature();
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('signature', sigData.signature);
+      formData.append('timestamp', sigData.timestamp);
+      formData.append('api_key', sigData.apiKey);
+      formData.append('folder', sigData.folder);
+
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${sigData.cloudName}/image/upload`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      return data.secure_url;
+    } catch (error) {
+      console.error('Cloudinary upload error:', error);
+      throw error;
+    }
+  }
+
+  const handleCccdUpload = async (e) => {
     const file = e.target.files[0];
-    if (file) setCccdPreview(URL.createObjectURL(file));
+    if (file) {
+      setCccdPreview(URL.createObjectURL(file));
+      setUploadingCccd(true);
+      try {
+        const url = await uploadToCloudinary(file);
+        setProfile(prev => ({ ...prev, cccdUrl: url }));
+      } catch (err) {
+        alert('Tải ảnh thất bại. Vui lòng thử lại.');
+        setCccdPreview(null);
+      } finally {
+        setUploadingCccd(false);
+      }
+    }
   }
 
-  const handleGplxUpload = (e) => {
+  const handleGplxUpload = async (e) => {
     const file = e.target.files[0];
-    if (file) setGplxPreview(URL.createObjectURL(file));
+    if (file) {
+      setGplxPreview(URL.createObjectURL(file));
+      setUploadingGplx(true);
+      try {
+        const url = await uploadToCloudinary(file);
+        setProfile(prev => ({ ...prev, gplxUrl: url }));
+      } catch (err) {
+        alert('Tải ảnh thất bại. Vui lòng thử lại.');
+        setGplxPreview(null);
+      } finally {
+        setUploadingGplx(false);
+      }
+    }
   }
+
+  if (loading) return <div className="p-8 text-center">Đang tải hồ sơ...</div>
 
   return (
     <div className="space-y-8 animate-in fade-in zoom-in-95 duration-200">
@@ -40,7 +130,8 @@ export function UserProfileTab() {
             <label className="block text-sm font-semibold text-slate-700 mb-2">Họ và tên</label>
             <input 
               type="text" 
-              defaultValue={mockUser.name}
+              value={profile.fullName}
+              onChange={(e) => setProfile({...profile, fullName: e.target.value})}
               className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all font-medium text-slate-900" 
             />
           </div>
@@ -48,7 +139,8 @@ export function UserProfileTab() {
             <label className="block text-sm font-semibold text-slate-700 mb-2">Ngày sinh</label>
             <input 
               type="date" 
-              defaultValue={mockUser.dob}
+              value={profile.dateOfBirth}
+              onChange={(e) => setProfile({...profile, dateOfBirth: e.target.value})}
               className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all font-medium text-slate-900" 
             />
           </div>
@@ -56,7 +148,8 @@ export function UserProfileTab() {
             <label className="block text-sm font-semibold text-slate-700 mb-2">Số điện thoại</label>
             <input 
               type="tel" 
-              defaultValue={mockUser.phone}
+              value={profile.phone}
+              onChange={(e) => setProfile({...profile, phone: e.target.value})}
               className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all font-medium text-slate-900" 
             />
           </div>
@@ -64,7 +157,7 @@ export function UserProfileTab() {
             <label className="block text-sm font-semibold text-slate-700 mb-2">Email</label>
             <input 
               type="email" 
-              defaultValue={mockUser.email}
+              value={profile.email}
               disabled
               className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed font-medium" 
             />
@@ -73,7 +166,8 @@ export function UserProfileTab() {
             <label className="block text-sm font-semibold text-slate-700 mb-2">Số Căn cước công dân (CCCD) *</label>
             <input 
               type="text" 
-              defaultValue={mockUser.cccd}
+              value={profile.cccd}
+              onChange={(e) => setProfile({...profile, cccd: e.target.value})}
               className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all font-medium text-slate-900" 
             />
           </div>
@@ -81,7 +175,8 @@ export function UserProfileTab() {
             <label className="block text-sm font-semibold text-slate-700 mb-2">Số Giấy phép lái xe (GPLX) *</label>
             <input 
               type="text" 
-              defaultValue={mockUser.gplx}
+              value={profile.gplxNumber}
+              onChange={(e) => setProfile({...profile, gplxNumber: e.target.value})}
               className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all font-medium text-slate-900" 
             />
           </div>
@@ -102,10 +197,12 @@ export function UserProfileTab() {
                 accept="image/*"
                 onChange={handleCccdUpload}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                disabled={uploadingCccd}
               />
               {cccdPreview ? (
                 <div className="absolute inset-2">
-                  <img src={cccdPreview} alt="CCCD Preview" className="w-full h-full object-contain rounded-lg" />
+                  <img src={cccdPreview} alt="CCCD Preview" className={`w-full h-full object-contain rounded-lg ${uploadingCccd ? 'opacity-50' : ''}`} />
+                  {uploadingCccd && <div className="absolute inset-0 flex items-center justify-center font-bold text-fpt-blue">Đang tải lên...</div>}
                 </div>
               ) : (
                 <>
@@ -128,10 +225,12 @@ export function UserProfileTab() {
                 accept="image/*"
                 onChange={handleGplxUpload}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                disabled={uploadingGplx}
               />
               {gplxPreview ? (
                 <div className="absolute inset-2">
-                  <img src={gplxPreview} alt="GPLX Preview" className="w-full h-full object-contain rounded-lg" />
+                  <img src={gplxPreview} alt="GPLX Preview" className={`w-full h-full object-contain rounded-lg ${uploadingGplx ? 'opacity-50' : ''}`} />
+                  {uploadingGplx && <div className="absolute inset-0 flex items-center justify-center font-bold text-fpt-blue">Đang tải lên...</div>}
                 </div>
               ) : (
                 <>
@@ -149,7 +248,7 @@ export function UserProfileTab() {
 
       {/* Action Button */}
       <div className="flex justify-end pt-6">
-        <Button className="h-12 px-8 bg-fpt-blue hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition-all hover:-translate-y-0.5">
+        <Button onClick={handleSave} className="h-12 px-8 bg-fpt-blue hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition-all hover:-translate-y-0.5">
           Lưu thay đổi
         </Button>
       </div>

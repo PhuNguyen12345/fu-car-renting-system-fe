@@ -1,91 +1,86 @@
-import { Search, Car, Lock, Unlock, Eye, X, Mail, Phone, MapPin, CalendarDays, FileText, MessageSquare, EyeOff, ExternalLink } from "lucide-react"
-import { useState } from "react"
+import { Search, Car, Lock, Unlock, Eye, X, Mail, Phone, MapPin, CalendarDays, FileText, ExternalLink, EyeOff, Loader2 } from "lucide-react"
+import { useState, useEffect, useMemo } from "react"
 import { createPortal } from "react-dom"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
-
-const mockUsers = [
-  {
-    id: '#USR-001',
-    name: 'Nguyễn Văn A',
-    email: 'nguyenvana@gmail.com',
-    phone: '0987654321',
-    cccd: '031098123899',
-    address: '123 Đường Láng, Đống Đa, Hà Nội',
-    joinedDate: '10/01/2026',
-    totalBookings: 12,
-    totalSpent: '45.000.000 đ',
-    status: 'active',
-    note: 'Khách VIP, thường xuyên thuê xe dài ngày.'
-  },
-  {
-    id: '#USR-002',
-    name: 'Trần Thị B',
-    email: 'tranthib@gmail.com',
-    phone: '0912345678',
-    cccd: '031099222333',
-    address: '45 Lê Lợi, Quận 1, TP.HCM',
-    joinedDate: '15/03/2026',
-    totalBookings: 2,
-    totalSpent: '3.000.000 đ',
-    status: 'active',
-    note: ''
-  },
-  {
-    id: '#USR-003',
-    name: 'Lê Văn C',
-    email: 'levanc@gmail.com',
-    phone: '0909090909',
-    cccd: '001088444555',
-    address: '88 Trần Phú, Hải Châu, Đà Nẵng',
-    joinedDate: '05/05/2026',
-    totalBookings: 5,
-    totalSpent: '16.600.000 đ',
-    status: 'locked',
-    note: 'Khóa tài khoản do tranh chấp hỏng hóc xe ngày 20/06. Đang chờ giải quyết bồi thường.'
-  },
-  {
-    id: '#USR-004',
-    name: 'Phạm Thị D',
-    email: 'phamthid@gmail.com',
-    phone: '0988888888',
-    cccd: '034091888999',
-    address: 'KĐT EcoPark, Hưng Yên',
-    joinedDate: '01/07/2026',
-    totalBookings: 0,
-    totalSpent: '0 đ',
-    status: 'active',
-    note: ''
-  }
-]
+import { customerService } from "@/services/customerService"
 
 const getInitials = (name) => {
+  if (!name) return '?'
   return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 }
 
 const getStatusBadge = (status) => {
-  if (status === 'active') {
+  if (status === 'ACTIVE') {
     return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm">Hoạt động</span>
   }
   return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200 shadow-sm">Đã khóa</span>
 }
 
 export function AdminUsersTab() {
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+
   const [viewUser, setViewUser] = useState(null)
   const [showId, setShowId] = useState(false)
   const [previewImage, setPreviewImage] = useState(null)
+
+  const [searchKeyword, setSearchKeyword] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+
+  const fetchUsers = async () => {
+    setLoading(true)
+    try {
+      const data = await customerService.getAdminCustomers()
+      setUsers(data)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchUsers()
+  }, [])
+
+  const filteredUsers = useMemo(() => {
+    return users.filter(user => {
+      const matchSearch = user.fullName?.toLowerCase().includes(searchKeyword.toLowerCase()) || 
+                          user.email?.toLowerCase().includes(searchKeyword.toLowerCase()) || 
+                          user.phone?.includes(searchKeyword);
+      
+      const matchStatus = statusFilter === 'all' || 
+                          (statusFilter === 'active' && user.status === 'ACTIVE') ||
+                          (statusFilter === 'locked' && user.status !== 'ACTIVE');
+
+      return matchSearch && matchStatus;
+    });
+  }, [users, searchKeyword, statusFilter]);
 
   const handleCloseModal = () => {
     setViewUser(null)
     setShowId(false)
     setPreviewImage(null)
+  }
+
+  const handleToggleLock = async (user) => {
+    const isLocked = user.status !== 'ACTIVE';
+    const actionName = isLocked ? 'mở khóa' : 'khóa';
+    if (confirm(`Bạn có chắc chắn muốn ${actionName} tài khoản ${user.fullName}?`)) {
+      try {
+        if (isLocked) {
+          await customerService.restoreCustomer(user.id)
+        } else {
+          await customerService.banCustomer(user.id)
+        }
+        alert(`Đã ${actionName} thành công`)
+        fetchUsers()
+        if (viewUser && viewUser.id === user.id) {
+          setViewUser({ ...viewUser, status: isLocked ? 'ACTIVE' : 'BANNED' })
+        }
+      } catch (err) {
+        alert('Lỗi: ' + err.message)
+      }
+    }
   }
 
   return (
@@ -101,11 +96,17 @@ export function AdminUsersTab() {
           </div>
           <input
             type="text"
+            value={searchKeyword}
+            onChange={(e) => setSearchKeyword(e.target.value)}
             placeholder="Tìm theo tên, email, SĐT..."
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm font-medium text-slate-700 placeholder:text-slate-400 shadow-sm"
           />
         </div>
-        <select className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm sm:w-48 cursor-pointer">
+        <select 
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm sm:w-48 cursor-pointer"
+        >
           <option value="all">Tất cả</option>
           <option value="active">Đang hoạt động</option>
           <option value="locked">Đã khóa</option>
@@ -113,107 +114,97 @@ export function AdminUsersTab() {
       </div>
 
       {/* Data Table */}
-      <div className="overflow-x-auto bg-white border border-slate-200 rounded-xl shadow-sm">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 uppercase text-xs tracking-wider">
-            <tr>
-              <th scope="col" className="px-6 py-4 rounded-tl-xl">Khách hàng</th>
-              <th scope="col" className="px-6 py-4">Số điện thoại</th>
-              <th scope="col" className="px-6 py-4">Lịch sử thuê</th>
-              <th scope="col" className="px-6 py-4">Tổng chi tiêu</th>
-              <th scope="col" className="px-6 py-4">Trạng thái</th>
-              <th scope="col" className="px-6 py-4 text-right rounded-tr-xl">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {mockUsers.map((user) => (
-              <tr key={user.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold shadow-sm">
-                      {getInitials(user.name)}
-                    </div>
-                    <div>
-                      <div className="font-bold text-slate-900 text-base">{user.name}</div>
-                      <div className="text-xs text-slate-500 mt-0.5">{user.email}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 font-semibold text-slate-700">
-                  {user.phone}
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-1.5 font-bold text-slate-800 text-sm">
-                    <Car className="w-4 h-4 text-blue-500" />
-                    {user.totalBookings} chuyến
-                  </div>
-                </td>
-                <td className="px-6 py-4 font-bold text-emerald-600 text-sm">
-                  {user.totalSpent}
-                </td>
-                <td className="px-6 py-4">
-                  {getStatusBadge(user.status)}
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center justify-end gap-1">
-                    <button 
-                      onClick={() => setViewUser(user)}
-                      className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" 
-                      title="Xem chi tiết"
-                    >
-                      <Eye className="w-5 h-5" />
-                    </button>
-                    {user.status === 'active' ? (
-                      <button className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Khóa tài khoản">
-                        <Lock className="w-5 h-5" />
-                      </button>
-                    ) : (
-                      <button className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Mở khóa tài khoản">
-                        <Unlock className="w-5 h-5" />
-                      </button>
-                    )}
-                  </div>
-                </td>
+      {loading ? (
+        <div className="flex items-center justify-center p-12">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        </div>
+      ) : (
+        <div className="overflow-x-auto bg-white border border-slate-200 rounded-xl shadow-sm">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 uppercase text-xs tracking-wider">
+              <tr>
+                <th scope="col" className="px-6 py-4 rounded-tl-xl">Khách hàng</th>
+                <th scope="col" className="px-6 py-4">Số điện thoại</th>
+                <th scope="col" className="px-6 py-4">CCCD</th>
+                <th scope="col" className="px-6 py-4">Trạng thái</th>
+                <th scope="col" className="px-6 py-4 text-right rounded-tr-xl">Thao tác</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredUsers.map((user) => (
+                <tr key={user.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold shadow-sm overflow-hidden border border-blue-200">
+                        {user.avatarUrl ? (
+                          <img src={user.avatarUrl} alt={user.fullName} className="w-full h-full object-cover" />
+                        ) : (
+                          getInitials(user.fullName)
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-900 text-base">{user.fullName}</div>
+                        <div className="text-xs text-slate-500 mt-0.5">{user.email}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 font-semibold text-slate-700">
+                    {user.phone || 'Chưa cập nhật'}
+                  </td>
+                  <td className="px-6 py-4 font-semibold text-slate-700">
+                    {user.cccd || 'Chưa cập nhật'}
+                  </td>
+                  <td className="px-6 py-4">
+                    {getStatusBadge(user.status)}
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center justify-end gap-1">
+                      <button 
+                        onClick={() => setViewUser(user)}
+                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" 
+                        title="Xem chi tiết"
+                      >
+                        <Eye className="w-5 h-5" />
+                      </button>
+                      {user.status === 'ACTIVE' ? (
+                        <button 
+                          onClick={() => handleToggleLock(user)}
+                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
+                          title="Khóa tài khoản"
+                        >
+                          <Lock className="w-5 h-5" />
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => handleToggleLock(user)}
+                          className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" 
+                          title="Mở khóa tài khoản"
+                        >
+                          <Unlock className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {filteredUsers.length === 0 && (
+                <tr>
+                  <td colSpan="5" className="text-center py-8 text-slate-500">
+                    Không tìm thấy khách hàng nào.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
 
-        {/* Pagination */}
-        <div className="flex items-center justify-between border-t border-slate-200 bg-white px-6 py-4">
-          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-slate-500">
-                Hiển thị <span className="font-semibold text-slate-900">1</span> đến <span className="font-semibold text-slate-900">4</span> trong số <span className="font-semibold text-slate-900">1,248</span> kết quả
-              </p>
-            </div>
-            <div>
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious href="#" text="Trước" className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer" />
-                  </PaginationItem>
-                  <PaginationItem>
-                    <PaginationLink href="#" isActive className="bg-blue-600 text-white hover:bg-blue-700 hover:text-white border-blue-600 cursor-pointer shadow-sm">1</PaginationLink>
-                  </PaginationItem>
-                  <PaginationItem>
-                    <PaginationLink href="#" className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 border-transparent hover:border-blue-200 cursor-pointer transition-colors">2</PaginationLink>
-                  </PaginationItem>
-                  <PaginationItem>
-                    <PaginationLink href="#" className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 border-transparent hover:border-blue-200 cursor-pointer transition-colors">3</PaginationLink>
-                  </PaginationItem>
-                  <PaginationItem>
-                    <PaginationEllipsis className="text-slate-400" />
-                  </PaginationItem>
-                  <PaginationItem>
-                    <PaginationNext href="#" text="Sau" className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer" />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
+          {/* Simple Footer/Pagination Summary */}
+          <div className="flex items-center justify-between border-t border-slate-200 bg-white px-6 py-4">
+            <p className="text-sm text-slate-500">
+              Tổng cộng <span className="font-semibold text-slate-900">{filteredUsers.length}</span> kết quả
+            </p>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Modal Xem chi tiết Khách hàng */}
       {viewUser && createPortal(
@@ -223,11 +214,15 @@ export function AdminUsersTab() {
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold shadow-sm text-lg border border-blue-200">
-                  {getInitials(viewUser.name)}
+                <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold shadow-sm text-lg border border-blue-200 overflow-hidden">
+                  {viewUser.avatarUrl ? (
+                    <img src={viewUser.avatarUrl} alt={viewUser.fullName} className="w-full h-full object-cover" />
+                  ) : (
+                    getInitials(viewUser.fullName)
+                  )}
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-slate-800">{viewUser.name}</h2>
+                  <h2 className="text-xl font-bold text-slate-800">{viewUser.fullName}</h2>
                   <div className="mt-1">{getStatusBadge(viewUser.status)}</div>
                 </div>
               </div>
@@ -244,106 +239,91 @@ export function AdminUsersTab() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 
                 {/* Contact Info */}
-                <div>
+                <div className="md:col-span-2">
                   <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                     <FileText className="w-4 h-4" /> Hồ sơ cá nhân
                   </h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3 text-slate-700">
-                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                        <Mail className="w-4 h-4 text-slate-500" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 text-slate-700">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                          <Mail className="w-4 h-4 text-slate-500" />
+                        </div>
+                        <span className="font-medium text-sm">{viewUser.email}</span>
                       </div>
-                      <span className="font-medium text-sm">{viewUser.email}</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-slate-700">
-                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                        <Phone className="w-4 h-4 text-slate-500" />
+                      <div className="flex items-center gap-3 text-slate-700">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                          <Phone className="w-4 h-4 text-slate-500" />
+                        </div>
+                        <span className="font-medium text-sm">{viewUser.phone || 'Chưa cập nhật'}</span>
                       </div>
-                      <span className="font-medium text-sm">{viewUser.phone}</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-slate-700">
-                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                        <FileText className="w-4 h-4 text-slate-500" />
-                      </div>
-                      <div className="flex items-center gap-2 font-medium text-sm">
-                        <span>CCCD: {showId ? viewUser.cccd : `${viewUser.cccd.substring(0, 3)} *** *** ${viewUser.cccd.substring(9)}`}</span>
-                        <button 
-                          onClick={() => setShowId(!showId)} 
-                          className="text-slate-400 hover:text-blue-600 transition-colors"
-                        >
-                          {showId ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                        <button 
-                          onClick={() => setPreviewImage(viewUser.cccdImage || 'https://res.cloudinary.com/demo/image/upload/sample.jpg')} 
-                          className="text-blue-500 hover:text-blue-700 transition-colors ml-1 p-1 rounded-md hover:bg-blue-50"
-                          title="Xem ảnh chụp"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </button>
+                      <div className="flex items-start gap-3 text-slate-700">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+                          <MapPin className="w-4 h-4 text-slate-500" />
+                        </div>
+                        <span className="font-medium text-sm pt-1.5 leading-relaxed">{viewUser.address || 'Chưa cập nhật'}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 text-slate-700">
-                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                        <FileText className="w-4 h-4 text-slate-500" />
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 text-slate-700">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                          <FileText className="w-4 h-4 text-slate-500" />
+                        </div>
+                        <div className="flex items-center gap-2 font-medium text-sm">
+                          <span>CCCD: {showId ? (viewUser.cccd || 'N/A') : (viewUser.cccd ? `${viewUser.cccd.substring(0, 3)} *** *** ${viewUser.cccd.substring(9)}` : 'N/A')}</span>
+                          {viewUser.cccd && (
+                            <button 
+                              onClick={() => setShowId(!showId)} 
+                              className="text-slate-400 hover:text-blue-600 transition-colors"
+                            >
+                              {showId ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          )}
+                          {viewUser.cccdUrl && (
+                            <button 
+                              onClick={() => setPreviewImage(viewUser.cccdUrl)} 
+                              className="text-blue-500 hover:text-blue-700 transition-colors ml-1 p-1 rounded-md hover:bg-blue-50"
+                              title="Xem ảnh chụp"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 font-medium text-sm">
-                        <span>GPLX: {showId ? (viewUser.gplx || '012987654321') : `${(viewUser.gplx || '012987654321').substring(0, 3)} *** *** ${(viewUser.gplx || '012987654321').substring(9)}`}</span>
-                        <button 
-                          onClick={() => setShowId(!showId)} 
-                          className="text-slate-400 hover:text-blue-600 transition-colors"
-                        >
-                          {showId ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                        <button 
-                          onClick={() => setPreviewImage(viewUser.gplxImage || 'https://res.cloudinary.com/demo/image/upload/sample.jpg')} 
-                          className="text-blue-500 hover:text-blue-700 transition-colors ml-1 p-1 rounded-md hover:bg-blue-50"
-                          title="Xem ảnh chụp"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </button>
+                      <div className="flex items-center gap-3 text-slate-700">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                          <FileText className="w-4 h-4 text-slate-500" />
+                        </div>
+                        <div className="flex items-center gap-2 font-medium text-sm">
+                          <span>GPLX: {showId ? (viewUser.gplxNumber || 'N/A') : (viewUser.gplxNumber ? `${viewUser.gplxNumber.substring(0, 3)} *** *** ${viewUser.gplxNumber.substring(9)}` : 'N/A')}</span>
+                          {viewUser.gplxNumber && (
+                            <button 
+                              onClick={() => setShowId(!showId)} 
+                              className="text-slate-400 hover:text-blue-600 transition-colors"
+                            >
+                              {showId ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          )}
+                          {viewUser.gplxUrl && (
+                            <button 
+                              onClick={() => setPreviewImage(viewUser.gplxUrl)} 
+                              className="text-blue-500 hover:text-blue-700 transition-colors ml-1 p-1 rounded-md hover:bg-blue-50"
+                              title="Xem ảnh chụp"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3 text-slate-700">
-                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
-                        <MapPin className="w-4 h-4 text-slate-500" />
+                      <div className="flex items-center gap-3 text-slate-700">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                          <CalendarDays className="w-4 h-4 text-slate-500" />
+                        </div>
+                        <span className="font-medium text-sm">NS: {viewUser.dateOfBirth || 'Chưa cập nhật'}</span>
                       </div>
-                      <span className="font-medium text-sm pt-1.5 leading-relaxed">{viewUser.address}</span>
                     </div>
                   </div>
-                </div>
-
-                {/* Activity Stats */}
-                <div>
-                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <Car className="w-4 h-4" /> Hoạt động
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                      <p className="text-slate-500 text-xs font-semibold mb-1">CHUYẾN ĐI</p>
-                      <p className="text-2xl font-bold text-blue-700">{viewUser.totalBookings}</p>
-                    </div>
-                    <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
-                      <p className="text-slate-500 text-xs font-semibold mb-1">TỔNG CHI</p>
-                      <p className="text-lg font-bold text-emerald-700 mt-1">{viewUser.totalSpent}</p>
-                    </div>
-                  </div>
-                  <div className="mt-4 flex items-center gap-2 text-sm text-slate-500 font-medium bg-slate-50 p-3 rounded-lg border border-slate-100">
-                    <CalendarDays className="w-4 h-4" />
-                    <span>Tham gia: {viewUser.joinedDate}</span>
-                  </div>
-                </div>
-
-                {/* Admin Notes */}
-                <div className="md:col-span-2">
-                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4" /> Ghi chú nội bộ & Lý do khóa (nếu có)
-                  </h3>
-                  <textarea 
-                    defaultValue={viewUser.note}
-                    placeholder="Ghi chú về khách hàng, thái độ, sự cố, lý do khóa tài khoản..."
-                    className="w-full p-4 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm font-medium text-slate-700 placeholder:text-slate-400 min-h-[100px]"
-                  />
-                  <p className="text-xs text-slate-400 mt-2 italic">* Các ghi chú này chỉ Admin mới có thể xem được.</p>
                 </div>
 
               </div>
@@ -357,16 +337,16 @@ export function AdminUsersTab() {
               >
                 Đóng
               </button>
-              {viewUser.status === 'locked' ? (
+              {viewUser.status !== 'ACTIVE' ? (
                 <button 
-                  onClick={handleCloseModal}
+                  onClick={() => handleToggleLock(viewUser)}
                   className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold shadow-sm transition-all flex items-center gap-2"
                 >
                   <Unlock className="w-4 h-4" /> Mở khóa tài khoản
                 </button>
               ) : (
                 <button 
-                  onClick={handleCloseModal}
+                  onClick={() => handleToggleLock(viewUser)}
                   className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold shadow-sm transition-all flex items-center gap-2"
                 >
                   <Lock className="w-4 h-4" /> Khóa tài khoản

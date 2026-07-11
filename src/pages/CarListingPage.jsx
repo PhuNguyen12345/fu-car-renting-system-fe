@@ -1,16 +1,9 @@
 import { useState, useEffect } from "react"
-import { mockCars } from "@/data/mockCars"
+import { useLocation } from "react-router-dom"
+import { carService } from "@/services/carService"
 import { CarCard } from "@/components/common/CarCard"
 import { Search, Filter, MapPin, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
+
 import { Slider } from "@/components/ui/slider"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -21,27 +14,81 @@ import { format } from "date-fns"
 import { formatVND } from "@/lib/utils"
 
 export function CarListingPage() {
+  const locationParams = useLocation()
+  const searchParams = new URLSearchParams(locationParams.search)
+  const initialCity = searchParams.get("city") || ""
+  const initialStartDate = searchParams.get("startDate")
+  const initialEndDate = searchParams.get("endDate")
+
   const [searchTerm, setSearchTerm] = useState("")
+  const [searchCity, setSearchCity] = useState(initialCity)
   const [selectedCategory, setSelectedCategory] = useState("Tất cả")
   const [currentPage, setCurrentPage] = useState(1)
   const [priceRange, setPriceRange] = useState([0, 10000000]) // Min 0, Max 10 million VND
   const [sliderValue, setSliderValue] = useState([0, 10000000]) // UI state
   const [transmission, setTransmission] = useState("Tất cả")
+  const [cars, setCars] = useState([])
+  const [totalPages, setTotalPages] = useState(1)
+  const [loading, setLoading] = useState(false)
   const [selectedClasses, setSelectedClasses] = useState([])
   
   const [dateRange, setDateRange] = useState({
-    from: new Date(),
-    to: new Date(new Date().getTime() + 3 * 24 * 60 * 60 * 1000)
+    from: initialStartDate ? new Date(initialStartDate) : new Date(),
+    to: initialEndDate ? new Date(initialEndDate) : new Date(new Date().getTime() + 3 * 24 * 60 * 60 * 1000)
   })
+  const [tempLocation, setTempLocation] = useState(searchCity)
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false)
 
   const ITEMS_PER_PAGE = 10
 
   const categories = ["Tất cả", "Sedan", "SUV", "Xe Mui Trần", "Xe Thể Thao", "Coupe", "Hatchback"]
 
+  useEffect(() => {
+    fetchCars()
+  }, [currentPage, searchTerm, searchCity, selectedCategory, priceRange, transmission])
+
+  const fetchCars = async () => {
+    setLoading(true)
+    try {
+      const params = {
+        page: currentPage - 1,
+        size: ITEMS_PER_PAGE,
+      }
+      if (searchTerm) params.keyword = searchTerm;
+      if (searchCity) params.city = searchCity;
+      if (selectedCategory !== "Tất cả") {
+        // Map category to uppercase format or specific backend constants
+        const typeMap = {
+          "Sedan": "SEDAN",
+          "SUV": "SUV",
+          "Xe Mui Trần": "CONVERTIBLE",
+          "Xe Thể Thao": "SPORT",
+          "Coupe": "COUPE",
+          "Hatchback": "HATCHBACK"
+        };
+        params.type = typeMap[selectedCategory] || selectedCategory.toUpperCase();
+      }
+      if (transmission !== "Tất cả") {
+        // Map transmission to backend constants
+        params.transmission = transmission === "Tự động" ? "AUTO" : "MANUAL";
+      }
+      params.minPrice = priceRange[0];
+      params.maxPrice = priceRange[1];
+
+      const res = await carService.getPublicCars(params);
+      setCars(res.content);
+      setTotalPages(res.totalPages);
+    } catch (err) {
+      console.error("Error fetching cars:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, selectedCategory, priceRange, transmission, selectedClasses])
+  }, [searchTerm, searchCity, selectedCategory, priceRange, transmission, selectedClasses])
 
   // Debounce slider updates to prevent UI lag while dragging
   useEffect(() => {
@@ -50,21 +97,6 @@ export function CarListingPage() {
     }, 300)
     return () => clearTimeout(handler)
   }, [sliderValue])
-
-  const filteredCars = mockCars.filter(car => {
-    const derivedCarClass = car.pricePerDay >= 4000000 ? "Hạng sang" : car.pricePerDay >= 2500000 ? "Trung cấp" : "Phổ thông"
-    const matchesSearch = car.name.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = selectedCategory === "Tất cả" || car.category === selectedCategory
-    const matchesPrice = car.pricePerDay >= priceRange[0] && car.pricePerDay <= priceRange[1]
-    const matchesTransmission = transmission === "Tất cả" || car.transmission === transmission
-    const matchesClass = selectedClasses.length === 0 || selectedClasses.includes(derivedCarClass)
-    
-    return matchesSearch && matchesCategory && matchesPrice && matchesTransmission && matchesClass
-  })
-
-  const totalPages = Math.ceil(filteredCars.length / ITEMS_PER_PAGE)
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
-  const paginatedCars = filteredCars.slice(startIndex, startIndex + ITEMS_PER_PAGE)
 
   const handleClearFilters = () => {
     setSearchTerm("")
@@ -215,7 +247,7 @@ export function CarListingPage() {
             <div className="flex items-center gap-4 text-sm font-medium text-gray-700 flex-wrap justify-center">
               <div className="flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-fpt-blue" />
-                <span>Hà Nội, Việt Nam</span>
+                <span>{searchCity || "Tất cả địa điểm"}</span>
               </div>
               <div className="hidden sm:block w-px h-6 bg-gray-200"></div>
               <div className="flex items-center gap-2">
@@ -226,78 +258,84 @@ export function CarListingPage() {
               </div>
             </div>
 
-            <Popover>
+            <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
               <PopoverTrigger className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors border border-fpt-blue text-fpt-blue hover:bg-fpt-blue hover:text-white h-10 px-4 py-2">
                 Thay đổi tìm kiếm
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="end">
-                <Calendar
-                  mode="range"
-                  selected={dateRange}
-                  onSelect={setDateRange}
-                  numberOfMonths={1}
-                  className="bg-white rounded-lg border shadow-lg p-4"
-                />
+                <div className="flex flex-col space-y-4 p-4 bg-white rounded-lg shadow-xl border border-gray-100 min-w-[320px]">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Địa điểm nhận xe</label>
+                    <select 
+                      value={tempLocation} 
+                      onChange={(e) => setTempLocation(e.target.value)}
+                      className="w-full border border-gray-300 rounded-md p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="">Tất cả địa điểm</option>
+                      <option value="Hà Nội">Hà Nội</option>
+                      <option value="Hồ Chí Minh">Hồ Chí Minh</option>
+                      <option value="Đà Nẵng">Đà Nẵng</option>
+                      <option value="Hải Phòng">Hải Phòng</option>
+                    </select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Thời gian thuê</label>
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={setDateRange}
+                      numberOfMonths={1}
+                      className="rounded-md border border-gray-100 shadow-sm p-2 w-full flex justify-center"
+                    />
+                  </div>
+
+                  <button 
+                    onClick={() => {
+                      setSearchCity(tempLocation)
+                      setIsPopoverOpen(false)
+                    }}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-md transition-colors"
+                  >
+                    Áp dụng
+                  </button>
+                </div>
               </PopoverContent>
             </Popover>
           </div>
 
-          {paginatedCars.length > 0 ? (
+          {loading ? (
+            <div className="flex justify-center items-center py-20">
+              <p className="text-gray-500 font-medium">Đang tải danh sách xe...</p>
+            </div>
+          ) : cars.length > 0 ? (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {paginatedCars.map(car => (
-                  <CarCard key={car.id} car={car} />
+                {cars.map(car => (
+                  <CarCard key={car.id} car={car} dateRange={dateRange} />
                 ))}
               </div>
 
               {/* Pagination Controls */}
-              {totalPages > 1 && (
-                <div className="mt-12 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm w-fit mx-auto">
-                  <Pagination>
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious 
-                          href="#" 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            if (currentPage > 1) setCurrentPage(p => p - 1);
-                          }}
-                          className={`hover:bg-fpt-blue/10 hover:text-fpt-blue transition-colors ${currentPage === 1 ? "pointer-events-none opacity-50" : ""}`} 
-                        />
-                      </PaginationItem>
-                      
-                      {[...Array(totalPages)].map((_, i) => (
-                        <PaginationItem key={i}>
-                          <PaginationLink 
-                            href="#" 
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setCurrentPage(i + 1);
-                            }}
-                            isActive={currentPage === i + 1}
-                            className={`transition-all duration-300 rounded-lg ${
-                              currentPage === i + 1
-                                ? "bg-fpt-blue text-white border-fpt-blue hover:bg-blue-700 hover:text-white font-bold shadow-md scale-105"
-                                : "text-gray-600 hover:bg-fpt-blue/10 hover:text-fpt-blue"
-                            }`}
-                          >
-                            {i + 1}
-                          </PaginationLink>
-                        </PaginationItem>
-                      ))}
-
-                      <PaginationItem>
-                        <PaginationNext 
-                          href="#" 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            if (currentPage < totalPages) setCurrentPage(p => p + 1);
-                          }}
-                          className={`hover:bg-fpt-blue/10 hover:text-fpt-blue transition-colors ${currentPage === totalPages ? "pointer-events-none opacity-50" : ""}`} 
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
+              {totalPages > 0 && (
+                <div className="flex justify-center items-center space-x-2 mt-10 mb-6 w-full">
+                  <button
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                  >
+                    Trang trước
+                  </button>
+                  <span className="text-sm font-medium text-gray-700 px-4">
+                    Trang {currentPage} / {totalPages}
+                  </span>
+                  <button
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                  >
+                    Trang sau
+                  </button>
                 </div>
               )}
             </>

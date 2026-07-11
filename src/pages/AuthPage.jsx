@@ -3,16 +3,43 @@ import { useState } from "react"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import logo from "@/assets/FPTCarRental_BG_Removed.png"
+import { authService } from "@/services/authService"
 
 export function AuthPage() {
   const navigate = useNavigate()
   const [birthDate, setBirthDate] = useState('')
   const [ageError, setAgeError] = useState('')
+  
+  const [loginEmail, setLoginEmail] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+  const [loginError, setLoginError] = useState('')
 
-  const handleLogin = (e) => {
+  const [regName, setRegName] = useState('')
+  const [regEmail, setRegEmail] = useState('')
+  const [regPassword, setRegPassword] = useState('')
+  const [regConfirmPassword, setRegConfirmPassword] = useState('')
+  const [regError, setRegError] = useState('')
+
+  const handleLogin = async (e) => {
     e.preventDefault()
-    localStorage.setItem('mockUser', 'true')
-    navigate('/')
+    setLoginError('')
+    try {
+      const res = await authService.login({ email: loginEmail, password: loginPassword })
+      if (res.token) {
+        if (res.role === 'ADMIN') {
+          setLoginError('Bạn đang đăng nhập bằng tài khoản Admin. Vui lòng sử dụng trang Admin Portal.')
+          return
+        }
+
+        localStorage.setItem('token', res.token)
+        localStorage.setItem('userRole', res.role)
+        localStorage.setItem('userEmail', res.email)
+        localStorage.setItem('userId', res.customerId)
+        window.location.href = '/'
+      }
+    } catch (err) {
+      setLoginError(err.response?.data?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại email/mật khẩu.')
+    }
   }
 
   const validateAge = (dateString) => {
@@ -30,15 +57,31 @@ export function AuthPage() {
     return age >= 18;
   }
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault()
+    setRegError('')
     if (!validateAge(birthDate)) {
       setAgeError('Bạn phải đủ 18 tuổi để sử dụng dịch vụ thuê xe.')
       return
     }
+    if (regPassword !== regConfirmPassword) {
+      setRegError('Mật khẩu xác nhận không khớp.')
+      return
+    }
     setAgeError('')
-    // TODO: Registration logic here
-    console.log("Đăng ký thành công")
+    try {
+      await authService.register({
+        email: regEmail,
+        password: regPassword,
+        fullName: regName,
+        phone: '', // Can add phone field later if needed
+      })
+      alert('Đăng ký thành công! Vui lòng đăng nhập.')
+      // Optional: switch tab to login
+      window.location.reload();
+    } catch (err) {
+      setRegError(err.response?.data?.message || 'Đăng ký thất bại.')
+    }
   }
   return (
     <div className="min-h-screen flex w-full">
@@ -99,13 +142,14 @@ export function AuthPage() {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Email</label>
-                    <input required type="email" placeholder="example@email.com" className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all placeholder:text-slate-400 font-medium" />
+                    <input required type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="example@email.com" className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all placeholder:text-slate-400 font-medium" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Mật khẩu</label>
-                    <input required type="password" placeholder="Nhập mật khẩu" className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all placeholder:text-slate-400 font-medium" />
+                    <input required type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} placeholder="Nhập mật khẩu" className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all placeholder:text-slate-400 font-medium" />
                     <Link to="/forgot-password" className="text-sm text-blue-600 hover:text-blue-700 mt-2 text-right block font-semibold transition-colors">Quên mật khẩu?</Link>
                   </div>
+                  {loginError && <p className="text-red-500 text-sm font-semibold">{loginError}</p>}
                 </div>
 
                 <Button type="submit" className="w-full h-12 bg-fpt-blue hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition-all hover:-translate-y-0.5">
@@ -119,11 +163,11 @@ export function AuthPage() {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Họ và tên</label>
-                    <input required type="text" placeholder="Nguyễn Văn A" className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all placeholder:text-slate-400 font-medium" />
+                    <input required type="text" value={regName} onChange={(e) => setRegName(e.target.value)} placeholder="Nguyễn Văn A" className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all placeholder:text-slate-400 font-medium" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Email</label>
-                    <input required type="email" placeholder="example@email.com" className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all placeholder:text-slate-400 font-medium" />
+                    <input required type="email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} placeholder="example@email.com" className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all placeholder:text-slate-400 font-medium" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Ngày sinh</label>
@@ -150,12 +194,13 @@ export function AuthPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Mật khẩu</label>
-                    <input required type="password" placeholder="Tạo mật khẩu (ít nhất 8 ký tự)" className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all placeholder:text-slate-400 font-medium" />
+                    <input required type="password" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} placeholder="Tạo mật khẩu (ít nhất 8 ký tự)" className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all placeholder:text-slate-400 font-medium" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Xác nhận mật khẩu</label>
-                    <input required type="password" placeholder="Nhập lại mật khẩu" className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all placeholder:text-slate-400 font-medium" />
+                    <input required type="password" value={regConfirmPassword} onChange={(e) => setRegConfirmPassword(e.target.value)} placeholder="Nhập lại mật khẩu" className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:border-fpt-blue focus:ring-1 focus:ring-fpt-blue transition-all placeholder:text-slate-400 font-medium" />
                   </div>
+                  {regError && <p className="text-red-500 text-sm font-semibold">{regError}</p>}
                 </div>
 
                 <Button type="submit" className="w-full h-12 bg-fpt-blue hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition-all hover:-translate-y-0.5">

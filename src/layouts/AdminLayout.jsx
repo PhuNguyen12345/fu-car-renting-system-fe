@@ -1,8 +1,17 @@
-import { Outlet, NavLink, Link } from "react-router-dom"
-import { Car, LayoutDashboard, ClipboardList, Users, BarChart3, Search, Bell, Tags, Building } from "lucide-react"
+import { useState } from "react"
+import { Outlet, NavLink, Link, Navigate } from "react-router-dom"
+import { Car, LayoutDashboard, ClipboardList, Users, BarChart3, Search, Bell, Tags, Building, UserCircle, User, Settings, LogOut } from "lucide-react"
 import logo from "@/assets/FPTCarRental_BG_Removed.png"
 
 export function AdminLayout() {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const token = localStorage.getItem('token')
+  const role = localStorage.getItem('userRole')
+
+  if (!token || role !== 'ADMIN') {
+    return <Navigate to="/admin/login" replace />
+  }
+
   const menuItems = [
     { name: "Tổng quan", icon: LayoutDashboard, path: "/admin" },
     { name: "Quản lý xe", icon: Car, path: "/admin/cars" },
@@ -11,6 +20,7 @@ export function AdminLayout() {
     { name: "Đơn đặt xe", icon: ClipboardList, path: "/admin/bookings" },
     { name: "Khách hàng", icon: Users, path: "/admin/users" },
     { name: "Báo cáo doanh thu", icon: BarChart3, path: "/admin/reports" },
+    { name: "Tài khoản của tôi", icon: UserCircle, path: "/admin/profile" },
   ]
 
   return (
@@ -77,11 +87,38 @@ export function AdminLayout() {
               <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border border-slate-800"></span>
             </button>
             <div className="h-8 w-px bg-white/10"></div>
-            <div className="flex items-center gap-3 cursor-pointer group">
-              <div className="w-10 h-10 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center font-bold text-sm group-hover:bg-teal-500/30 transition-colors border border-teal-500/30 shadow-[0_0_10px_rgba(20,184,166,0.2)]">
-                A
+            <div className="relative">
+              <div 
+                className="flex items-center gap-3 cursor-pointer group"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              >
+                <div className="w-10 h-10 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center font-bold text-sm group-hover:bg-teal-500/30 transition-colors border border-teal-500/30 shadow-[0_0_10px_rgba(20,184,166,0.2)]">
+                  A
+                </div>
+                <span className="font-semibold text-sm text-slate-200 group-hover:text-white transition-colors tracking-wide">Admin</span>
               </div>
-              <span className="font-semibold text-sm text-slate-200 group-hover:text-white transition-colors tracking-wide">Admin</span>
+              
+              {isDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
+                  <Link to="/admin/profile" onClick={() => setIsDropdownOpen(false)} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors">
+                    <User className="w-4 h-4" />
+                    Hồ sơ cá nhân
+                  </Link>
+                  <Link to="#" onClick={() => setIsDropdownOpen(false)} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors">
+                    <Settings className="w-4 h-4" />
+                    Cài đặt
+                  </Link>
+                  <button onClick={() => {
+                    setIsDropdownOpen(false);
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('userRole');
+                    window.location.href = '/admin/login';
+                  }} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors">
+                    <LogOut className="w-4 h-4" />
+                    Đăng xuất
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </header>

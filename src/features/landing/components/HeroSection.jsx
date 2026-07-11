@@ -2,9 +2,19 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { MapPin, Search } from "lucide-react"
+import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import heroBg from "@/assets/hero_bg.png"
 
 export function HeroSection() {
+  const navigate = useNavigate()
+  const [location, setLocation] = useState("Hà Nội")
+  const [pickupDate, setPickupDate] = useState("")
+  const [dropoffDate, setDropoffDate] = useState("")
+
+  const handleSearch = () => {
+    navigate(`/cars?city=${encodeURIComponent(location)}&startDate=${pickupDate}&endDate=${dropoffDate}`)
+  }
   return (
     <div className="relative w-full h-[600px] flex items-center justify-center">
       {/* Background Image */}
@@ -31,7 +41,9 @@ export function HeroSection() {
               <div className="relative">
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <Input 
-                  placeholder="Pick-up Location" 
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="Hà Nội" 
                   className="pl-10 h-12 bg-gray-50 border-gray-200 text-base rounded-xl focus-visible:ring-fpt-teal"
                 />
               </div>
@@ -40,6 +52,8 @@ export function HeroSection() {
             <div className="space-y-2">
               <Input 
                 type="date"
+                value={pickupDate}
+                onChange={(e) => setPickupDate(e.target.value)}
                 placeholder="Pick-up date" 
                 className="h-12 bg-gray-50 border-gray-200 text-base rounded-xl focus-visible:ring-fpt-teal text-gray-500"
               />
@@ -48,12 +62,14 @@ export function HeroSection() {
             <div className="space-y-2">
               <Input 
                 type="date"
+                value={dropoffDate}
+                onChange={(e) => setDropoffDate(e.target.value)}
                 placeholder="Drop-off date" 
                 className="h-12 bg-gray-50 border-gray-200 text-base rounded-xl focus-visible:ring-fpt-teal text-gray-500"
               />
             </div>
 
-            <Button className="h-12 w-full bg-fpt-blue hover:bg-fpt-blue/90 text-white text-base rounded-xl shadow-md transition-all hover:shadow-lg">
+            <Button onClick={handleSearch} className="h-12 w-full bg-fpt-blue hover:bg-fpt-blue/90 text-white text-base rounded-xl shadow-md transition-all hover:shadow-lg">
               <Search className="w-5 h-5 mr-2" />
               Tìm kiếm
             </Button>

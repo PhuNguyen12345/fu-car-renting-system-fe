@@ -1,53 +1,64 @@
-import { NavLink, Outlet } from "react-router-dom"
+import { NavLink, Outlet, Navigate } from "react-router-dom"
 import { User, ClipboardList, Lock, Camera, Loader2 } from "lucide-react"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 
-const getCloudinarySignature = async () => {
-  const token = localStorage.getItem('token') || ''; 
-  const response = await fetch("http://localhost:8080/api/v1/customers/cloudinary-signature", {
-      headers: {
-          "Authorization": `Bearer ${token}`
-      }
-  });
-  return await response.json(); 
-};
-
-const uploadImageToCloudinary = async (file) => {
-  try {
-    const signData = await getCloudinarySignature();
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("api_key", signData.apiKey);
-    formData.append("timestamp", signData.timestamp);
-    formData.append("signature", signData.signature);
-    formData.append("folder", signData.folder); 
-
-    const uploadUrl = `https://api.cloudinary.com/v1_1/${signData.cloudName}/image/upload`;
-    const response = await fetch(uploadUrl, { method: "POST", body: formData });
-    const data = await response.json();
-    
-    return data.secure_url;
-  } catch (error) {
-    console.error("Lỗi upload ảnh:", error);
-    alert("Upload ảnh thất bại!");
-    return null;
-  }
-};
+import { customerService } from "@/services/customerService"
 
 export function UserDashboardPage() {
-  const [avatarUrl, setAvatarUrl] = useState(null)
+  const token = localStorage.getItem('token')
+  if (!token) {
+    return <Navigate to="/auth" replace />
+  }
+
+  const [user, setUser] = useState(null)
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const fileInputRef = useRef(null)
 
+  useEffect(() => {
+    fetchProfile()
+  }, [])
+
+  const fetchProfile = async () => {
+    try {
+      const data = await customerService.getMyProfile()
+      setUser(data)
+    } catch (err) {
+      console.error("Lỗi lấy thông tin user:", err)
+    }
+  }
+
   const handleAvatarChange = async (e) => {
     const file = e.target.files[0];
-    if (file) {
+    if (file && user) {
       setIsUploadingAvatar(true);
-      const url = await uploadImageToCloudinary(file);
-      if (url) {
-        setAvatarUrl(url);
+      try {
+        // Upload to Cloudinary using existing service method pattern
+        const sigData = await customerService.getCloudinarySignature();
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('signature', sigData.signature);
+        formData.append('timestamp', sigData.timestamp);
+        formData.append('api_key', sigData.apiKey);
+        formData.append('folder', sigData.folder);
+
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${sigData.cloudName}/image/upload`, {
+          method: 'POST',
+          body: formData
+        });
+        const uploadData = await res.json();
+        
+        if (uploadData.secure_url) {
+          // Save to backend
+          const updatedUser = { ...user, avatarUrl: uploadData.secure_url }
+          await customerService.updateMyProfile(updatedUser)
+          setUser(updatedUser)
+        }
+      } catch (err) {
+        console.error("Lỗi đổi avatar:", err)
+        alert("Có lỗi khi đổi ảnh đại diện")
+      } finally {
+        setIsUploadingAvatar(false);
       }
-      setIsUploadingAvatar(false);
     }
   }
 
@@ -70,10 +81,10 @@ export function UserDashboardPage() {
             >
               {isUploadingAvatar ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
-              ) : avatarUrl ? (
-                <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+              ) : user?.avatarUrl ? (
+                <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
-                "AP"
+                <span className="uppercase">{user?.fullName ? user.fullName.charAt(0) : "U"}</span>
               )}
               {!isUploadingAvatar && (
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-full">
@@ -90,7 +101,7 @@ export function UserDashboardPage() {
             </div>
             <div>
               <p className="text-sm text-slate-500">Xin chào,</p>
-              <p className="font-bold text-slate-900">Nguyễn An Phú</p>
+              <p className="font-bold text-slate-900">{user?.fullName || "Khách"}</p>
             </div>
           </div>
 

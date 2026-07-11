@@ -5,18 +5,41 @@ import { Users, Fuel, DoorOpen } from "lucide-react"
 import { formatVND } from "@/lib/utils"
 import { useNavigate } from "react-router-dom"
 
-export function CarCard({ car }) {
+export function CarCard({ car, dateRange }) {
   const navigate = useNavigate();
+  
+  const isAvailable = car.status === 'AVAILABLE';
+
+  const handleNavigate = () => {
+    if (!isAvailable) return;
+    
+    let url = `/cars/${car.id}`;
+    if (dateRange?.from && dateRange?.to) {
+      url += `?from=${dateRange.from.toISOString()}&to=${dateRange.to.toISOString()}`;
+    }
+    navigate(url);
+  };
+  
+  const getStatusBadge = () => {
+    if (car.status === 'RENTED') {
+      return <Badge className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-amber-500/90 hover:bg-amber-500 text-white shadow-lg backdrop-blur-md font-bold text-base py-2 px-6 rounded-full z-10 whitespace-nowrap">Đang Thuê</Badge>
+    }
+    if (car.status === 'MAINTENANCE') {
+      return <Badge className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-rose-500/90 hover:bg-rose-500 text-white shadow-lg backdrop-blur-md font-bold text-base py-2 px-6 rounded-full z-10 whitespace-nowrap">Đang Bảo Trì</Badge>
+    }
+    return null;
+  }
   
   return (
     <Card 
-      onClick={() => navigate(`/cars/${car.id}`)}
-      className="overflow-hidden group hover:shadow-lg transition-all duration-300 border-none bg-white rounded-xl cursor-pointer"
+      onClick={handleNavigate}
+      className={`overflow-hidden group transition-all duration-300 border-none bg-white rounded-xl ${isAvailable ? 'hover:shadow-lg cursor-pointer' : 'opacity-70 cursor-not-allowed grayscale-[0.2]'}`}
     >
       <CardHeader className="p-0 relative h-56 overflow-hidden bg-[#F8F9FA] flex items-center justify-center">
-        {car.image ? (
+        {getStatusBadge()}
+        {car.imageUrl ? (
           <img 
-            src={car.image} 
+            src={car.imageUrl} 
             alt={car.name} 
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />

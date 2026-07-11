@@ -1,29 +1,114 @@
-import { Plus, Edit, Trash2, X, CloudUpload } from "lucide-react"
+import { Plus, Edit, Trash2, X, CloudUpload, Loader2 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
-
-const mockBrands = [
-  { id: 1, name: 'Toyota', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/9/9d/Toyota_carlogo.svg', carCount: 15 },
-  { id: 2, name: 'Mercedes-Benz', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/9/90/Mercedes-Logo.svg', carCount: 8 },
-  { id: 3, name: 'BMW', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/4/44/BMW.svg', carCount: 12 },
-]
+import { carService } from "@/services/carService"
 
 export function AdminBrandsTab() {
+  const [brands, setBrands] = useState([])
+  const [loading, setLoading] = useState(true)
+  
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [editBrand, setEditBrand] = useState(null)
   
+  const [brandName, setBrandName] = useState('')
   const [logoMode, setLogoMode] = useState('url')
   const [logoUrl, setLogoUrl] = useState('')
+  const [selectedFile, setSelectedFile] = useState(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const fetchBrands = async () => {
+    setLoading(true)
+    try {
+      const data = await carService.getAdminBrands()
+      setBrands(data)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchBrands()
+  }, [])
 
   useEffect(() => {
     if (editBrand) {
+      setBrandName(editBrand.name || '')
       setLogoMode('url')
       setLogoUrl(editBrand.logoUrl || '')
+      setSelectedFile(null)
     } else {
+      setBrandName('')
       setLogoMode('url')
       setLogoUrl('')
+      setSelectedFile(null)
     }
   }, [editBrand, isAddModalOpen])
+
+  const handleDelete = async (id) => {
+    if (confirm("Bạn có chắc chắn muốn xóa hãng xe này?")) {
+      try {
+        await carService.deleteBrand(id)
+        alert('Xóa thành công')
+        fetchBrands()
+      } catch (err) {
+        alert('Lỗi khi xóa: ' + err.message)
+      }
+    }
+  }
+
+  const handleSubmit = async () => {
+    if (!brandName.trim()) {
+      alert("Tên hãng xe không được để trống")
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      let finalLogoUrl = logoUrl;
+      
+      if (logoMode === 'file' && selectedFile) {
+        const sigData = await carService.getCloudinarySignature();
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('signature', sigData.signature);
+        formData.append('timestamp', sigData.timestamp);
+        formData.append('api_key', sigData.apiKey);
+        formData.append('folder', sigData.folder);
+
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${sigData.cloudName}/image/upload`, {
+          method: 'POST',
+          body: formData
+        });
+        const uploadData = await res.json();
+        if (uploadData.secure_url) {
+          finalLogoUrl = uploadData.secure_url;
+        }
+      }
+      
+      const payload = {
+        name: brandName,
+        logoUrl: finalLogoUrl
+      }
+      
+      if (editBrand) {
+        await carService.updateBrand(editBrand.id, payload)
+        alert('Cập nhật hãng xe thành công')
+      } else {
+        await carService.createBrand(payload)
+        alert('Thêm hãng xe thành công')
+      }
+      
+      setIsAddModalOpen(false)
+      setEditBrand(null)
+      fetchBrands()
+    } catch (err) {
+      alert('Có lỗi xảy ra: ' + err.message)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-2 p-2">
@@ -40,36 +125,48 @@ export function AdminBrandsTab() {
       </div>
 
       {/* Grid Layout */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {mockBrands.map((brand) => (
-          <div key={brand.id} className="bg-white border border-slate-200 rounded-xl shadow-sm p-5 flex flex-col hover:shadow-md transition-shadow">
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-16 h-16 bg-slate-50 rounded-full border border-slate-100 flex items-center justify-center p-2">
-                <img src={brand.logoUrl} alt={brand.name} className="w-full h-full object-contain" />
+      {loading ? (
+        <div className="flex items-center justify-center p-12">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {brands.map((brand) => (
+            <div key={brand.id} className="bg-white border border-slate-200 rounded-xl shadow-sm p-5 flex flex-col hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-16 h-16 bg-slate-50 rounded-full border border-slate-100 flex items-center justify-center p-2">
+                  <img src={brand.logoUrl || 'https://placehold.co/100x100?text=No+Logo'} alt={brand.name} className="w-full h-full object-contain" />
+                </div>
+                <div className="flex items-center gap-1">
+                  <button 
+                    onClick={() => setEditBrand(brand)}
+                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    title="Chỉnh sửa"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(brand.id)}
+                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Xóa"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <button 
-                  onClick={() => setEditBrand(brand)}
-                  className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  title="Chỉnh sửa"
-                >
-                  <Edit className="w-4 h-4" />
-                </button>
-                <button 
-                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Xóa"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+              <div>
+                <h3 className="font-bold text-lg text-slate-900">{brand.name}</h3>
+                {/* Note: backend does not return carCount currently in BrandDto */}
               </div>
             </div>
-            <div>
-              <h3 className="font-bold text-lg text-slate-900">{brand.name}</h3>
-              <p className="text-sm font-medium text-slate-500 mt-1">{brand.carCount} xe</p>
+          ))}
+          {brands.length === 0 && (
+            <div className="col-span-3 text-center py-12 text-slate-500">
+              Chưa có hãng xe nào.
             </div>
-          </div>
-        ))}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Modal */}
       {(isAddModalOpen || editBrand) && createPortal(
@@ -82,6 +179,7 @@ export function AdminBrandsTab() {
               <button 
                 onClick={() => { setIsAddModalOpen(false); setEditBrand(null); }}
                 className="text-slate-400 hover:text-slate-600 transition-colors p-1"
+                disabled={isSubmitting}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -92,7 +190,8 @@ export function AdminBrandsTab() {
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">Tên hãng xe *</label>
                 <input 
                   type="text" 
-                  defaultValue={editBrand?.name || ''}
+                  value={brandName}
+                  onChange={(e) => setBrandName(e.target.value)}
                   placeholder="VD: BMW" 
                   className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm font-medium" 
                 />
@@ -137,7 +236,10 @@ export function AdminBrandsTab() {
                       accept="image/*"
                       onChange={(e) => {
                         const file = e.target.files[0];
-                        if (file) setLogoUrl(URL.createObjectURL(file));
+                        if (file) {
+                          setSelectedFile(file)
+                          setLogoUrl(URL.createObjectURL(file));
+                        }
                       }}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
                     />
@@ -161,13 +263,16 @@ export function AdminBrandsTab() {
               <button 
                 onClick={() => { setIsAddModalOpen(false); setEditBrand(null); }}
                 className="px-4 py-2 rounded-lg font-semibold text-slate-600 hover:bg-slate-200 transition-colors"
+                disabled={isSubmitting}
               >
                 Hủy
               </button>
               <button 
-                onClick={() => { setIsAddModalOpen(false); setEditBrand(null); }}
-                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-sm transition-all"
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-sm transition-all flex items-center gap-2 disabled:opacity-70"
               >
+                {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 {editBrand ? 'Lưu thay đổi' : 'Thêm hãng xe'}
               </button>
             </div>

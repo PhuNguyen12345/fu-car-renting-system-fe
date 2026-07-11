@@ -21,6 +21,7 @@ import { UserProfileTab } from "./pages/UserProfileTab"
 import { UserBookingsTab } from "./pages/UserBookingsTab"
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage"
 import { UserSecurityTab } from "./pages/UserSecurityTab"
+import { AdminProfilePage } from "./pages/AdminProfilePage"
 
 function App() {
   return (
@@ -56,6 +57,10 @@ function App() {
           <Route path="bookings" element={<AdminBookingsTab />} />
           <Route path="users" element={<AdminUsersTab />} />
           <Route path="reports" element={<AdminReportsTab />} />
+          <Route path="profile" element={<AdminProfilePage />}>
+            <Route index element={<UserProfileTab />} />
+            <Route path="security" element={<UserSecurityTab />} />
+          </Route>
         </Route>
       </Routes>
     </BrowserRouter>

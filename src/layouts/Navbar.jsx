@@ -1,5 +1,6 @@
 import { Link, NavLink, useNavigate } from "react-router-dom"
 import { useState, useEffect, useRef } from "react"
+import { customerService } from "@/services/customerService"
 import { Button } from "@/components/ui/button"
 import { LogIn, UserPlus, LayoutDashboard, Settings, LogOut, ChevronDown } from "lucide-react"
 import logo from "@/assets/FPTCarRental_BG_Removed.png"
@@ -7,13 +8,20 @@ import logo from "@/assets/FPTCarRental_BG_Removed.png"
 export function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [user, setUser] = useState(null)
   const navigate = useNavigate()
   const dropdownRef = useRef(null)
 
   useEffect(() => {
-    const user = localStorage.getItem('mockUser')
-    if (user === 'true') {
+    const token = localStorage.getItem('token')
+    if (token) {
       setIsLoggedIn(true)
+      customerService.getMyProfile()
+        .then(res => setUser(res))
+        .catch(err => {
+          console.error("Failed to fetch profile", err)
+          handleLogout()
+        })
     }
 
     const handleClickOutside = (event) => {
@@ -26,10 +34,14 @@ export function Navbar() {
   }, [])
 
   const handleLogout = () => {
-    localStorage.removeItem('mockUser')
+    localStorage.removeItem('token')
+    localStorage.removeItem('userRole')
+    localStorage.removeItem('userEmail')
+    localStorage.removeItem('userId')
     setIsLoggedIn(false)
+    setUser(null)
     setIsDropdownOpen(false)
-    navigate('/')
+    window.location.href = '/'
   }
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur-md">
@@ -101,8 +113,12 @@ export function Navbar() {
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="flex items-center gap-2 hover:bg-slate-50 p-1.5 pr-3 rounded-full transition-colors border border-transparent hover:border-slate-200"
               >
-                <div className="w-9 h-9 bg-blue-100 text-fpt-blue font-bold flex items-center justify-center rounded-full text-sm shrink-0">
-                  AP
+                <div className="w-9 h-9 bg-blue-100 text-fpt-blue font-bold flex items-center justify-center rounded-full text-sm shrink-0 uppercase overflow-hidden">
+                  {user?.avatarUrl ? (
+                    <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    user?.fullName ? user.fullName.charAt(0) : "U"
+                  )}
                 </div>
                 <ChevronDown className="w-4 h-4 text-slate-500 hidden sm:block" />
               </button>
@@ -110,8 +126,8 @@ export function Navbar() {
               {isDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-slate-100 py-2 animate-in fade-in zoom-in-95 duration-200 z-50">
                   <div className="px-4 py-3 border-b border-slate-100 mb-2">
-                    <p className="text-sm font-bold text-slate-900">Nguyễn An Phú</p>
-                    <p className="text-xs text-slate-500 truncate mt-0.5">phuna@fpt.edu.vn</p>
+                    <p className="text-sm font-bold text-slate-900">{user?.fullName || "User"}</p>
+                    <p className="text-xs text-slate-500 truncate mt-0.5">{user?.email || ""}</p>
                   </div>
                   
                   <Link 
