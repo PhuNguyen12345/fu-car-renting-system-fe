@@ -386,8 +386,8 @@ export function AdminBookingsTab() {
                   <textarea 
                     value={rejectReason || viewBooking.adminNote || ''}
                     onChange={(e) => setRejectReason(e.target.value)}
-                    disabled={viewBooking.bookingStatus !== 'CONFIRMED'}
-                    placeholder={viewBooking.bookingStatus === 'CONFIRMED' ? "Nhập lý do nếu muốn từ chối đơn này..." : "Không có ghi chú"}
+                    disabled={viewBooking.bookingStatus !== 'CONFIRMED' && viewBooking.bookingStatus !== 'INITIATED'}
+                    placeholder={(viewBooking.bookingStatus === 'CONFIRMED' || viewBooking.bookingStatus === 'INITIATED') ? "Nhập lý do nếu muốn từ chối đơn này..." : "Không có ghi chú"}
                     className="w-full p-4 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm font-medium text-slate-700 placeholder:text-slate-400 min-h-[80px]"
                   />
                 </div>
@@ -404,7 +404,7 @@ export function AdminBookingsTab() {
                 Đóng
               </button>
               
-              {viewBooking.bookingStatus === 'CONFIRMED' && (
+              {(viewBooking.bookingStatus === 'CONFIRMED' || viewBooking.bookingStatus === 'INITIATED') && (
                 <>
                   <button 
                     onClick={() => {
