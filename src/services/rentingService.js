@@ -26,6 +26,14 @@ export const rentingService = {
     return await api.patch(`/rentals/${id}/cancel`);
   },
 
+  createPaymentLink: async (bookingId) => {
+    return await api.post('/payments/create-link', { bookingId });
+  },
+
+  syncPayment: async (bookingId) => {
+    return await api.get(`/payments/sync/${bookingId}`);
+  },
+
   // --- Admin Flow ---
   getAllRentals: async (page = 0, size = 10) => {
     return await api.get('/admin/rentals', { params: { page, size } });

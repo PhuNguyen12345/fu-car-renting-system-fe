@@ -1,4 +1,4 @@
-import { Calendar, Phone, Clock, FileText } from "lucide-react"
+import { Calendar, Phone, Clock, FileText, RefreshCcw, Loader2, CreditCard } from "lucide-react"
 import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -14,6 +14,7 @@ export function UserBookingsTab() {
 
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     fetchBookings();
@@ -112,6 +113,32 @@ export function UserBookingsTab() {
       alert(error.response?.data?.message || "Không thể hủy đơn thuê.");
     }
   };
+
+  const handleSyncPayment = async (bookingId) => {
+    setIsSyncing(true);
+    try {
+      await rentingService.syncPayment(bookingId);
+      alert("Đã cập nhật trạng thái thanh toán mới nhất!");
+      fetchBookings();
+    } catch (err) {
+      alert("Lỗi đồng bộ: " + (err.response?.data?.message || err.message));
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
+  const handleRetryPayment = async (bookingId) => {
+    try {
+      const payosRes = await rentingService.createPaymentLink(bookingId);
+      if (payosRes.data && payosRes.data.checkoutUrl) {
+        window.location.href = payosRes.data.checkoutUrl;
+      } else {
+        alert('Không thể tạo link thanh toán PayOS');
+      }
+    } catch (err) {
+      alert("Lỗi khi tạo link thanh toán: " + (err.response?.data?.message || err.message));
+    }
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-200">
@@ -251,6 +278,32 @@ export function UserBookingsTab() {
                     <span className="font-bold text-slate-900 text-base">Tổng giá trị đơn</span>
                     <span className="font-bold text-xl text-fpt-blue">{formatVND(booking.totalAmount)}</span>
                   </div>
+
+                  {booking.paymentStatus === 'UNPAID' && booking.paymentMethod !== 'CASH' && (
+                    <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-semibold text-orange-800">Chưa thanh toán trực tuyến</p>
+                        <p className="text-xs text-orange-600 mt-1">Nếu bạn đã chuyển khoản, vui lòng bấm Cập nhật.</p>
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                        <Button 
+                          onClick={() => handleRetryPayment(booking.id)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm w-full sm:w-auto"
+                        >
+                          <CreditCard className="w-4 h-4 mr-2" />
+                          Thanh toán ngay
+                        </Button>
+                        <Button 
+                          onClick={() => handleSyncPayment(booking.id)}
+                          disabled={isSyncing}
+                          className="bg-orange-500 hover:bg-orange-600 text-white shadow-sm w-full sm:w-auto"
+                        >
+                          {isSyncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCcw className="w-4 h-4 mr-2" />}
+                          Cập nhật
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
               </div>

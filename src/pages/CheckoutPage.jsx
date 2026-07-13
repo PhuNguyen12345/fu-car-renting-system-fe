@@ -103,10 +103,15 @@ export function CheckoutPage() {
       const bookingRes = await rentingService.createBooking(payload)
       setCreatedBookingId(bookingRes.id)
       
-      if (paymentMethod === 'CASH') {
-        // If cash, maybe just mark deposit as paid for demo, or show a different modal
-        setIsQrModalOpen(true)
+      if (paymentMethod === 'TRANSFER') {
+        const payosRes = await rentingService.createPaymentLink(bookingRes.id)
+        if (payosRes.data && payosRes.data.checkoutUrl) {
+          window.location.href = payosRes.data.checkoutUrl;
+        } else {
+          alert('Không thể tạo link thanh toán PayOS');
+        }
       } else {
+        // CASH or other mocks
         setIsQrModalOpen(true)
       }
     } catch (err) {
